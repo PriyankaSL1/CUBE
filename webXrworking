@@ -1,0 +1,87 @@
+let gl = null;
+
+function initXR() {
+ 
+  if (navigator.xr) {
+    navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+      console.log("This is working")
+    });
+
+    // Start up an inline session, which should always be supported on
+    // browsers that support WebXR regardless of the available hardware.
+    navigator.xr.requestSession('inline').then((session) => {
+      inlineSession = session;
+      onSessionStarted(session);
+    });
+  } else{
+    console.log("This is WebXR and it is NOT working");
+  }
+}
+
+function onRequestSession() {
+  return navigator.xr.requestSession('immersive-vr').then((session) => {
+    // Set a flag on the session so we can differentiate it from the
+    // inline session.
+    session.isImmersive = true;
+    onSessionStarted(session);
+  });
+} 
+
+function onSessionStarted(session) {
+  session.addEventListener('end', onSessionEnded);
+
+  if (!gl) {
+    gl = createWebGLContext({
+      xrCompatible: true
+    });
+
+    // In order for an inline session to be used we must attach the WebGL
+    // canvas to the document, which will serve as the output surface for
+    // the results of the inline session's rendering.
+    document.body.appendChild(gl.canvas);
+    
+    // The canvas is synced with the window size via CSS, but we still
+    // need to update the width and height attributes in order to keep
+    // the default framebuffer resolution in-sync.
+    function onResize() {
+      gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
+      gl.canvas.height = gl.canvas.clientHeight * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', onResize);
+    onResize();
+
+    // Installs the listeners necessary to allow users to look around with
+    // inline sessions using the mouse or touch.
+    addInlineViewListeners(gl.canvas);
+
+  }
+  
+  // WebGL layers for inline sessions won't allocate their own framebuffer,
+  // which causes gl commands to naturally execute against the default
+  // framebuffer while still using the canvas dimensions to compute
+  // viewports and projection matrices.
+  let glLayer = new XRWebGLLayer(session, gl);
+
+  session.updateRenderState({
+    baseLayer: glLayer
+  });
+
+
+  function onEndSession(session) {
+    session.end();
+  } 
+  //let refSpaceType = session.isImmersive ? 'local' : 'viewer';
+ // session.requestReferenceSpace(refSpaceType).then((refSpace) => {
+    // Since we're dealing with multiple sessions now we need to track
+    // which XRReferenceSpace is associated with which XRSession.
+   // if (session.isImmersive) {
+     // xrImmersiveRefSpace = refSpace;
+    //} else {
+      //xrInlineRefSpace = refSpace;
+    //}
+    //session.requestAnimationFrame(onXRFrame);
+  //});
+}
+
+// Start the XR application.
+      initXR();
